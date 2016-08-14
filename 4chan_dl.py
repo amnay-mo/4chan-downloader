@@ -14,7 +14,8 @@ def download_post(board, post, dir):
             f.write(data)
 
 def print_usage():
-    print "4chan_dl.py -u <thread url> -o <output directory>"
+    print "Usage: 4chan_dl.py -u <thread url> -o <output directory>"
+    exit(0)
 
 def parse_args(args):
     params = {}

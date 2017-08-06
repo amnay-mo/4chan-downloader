@@ -43,3 +43,6 @@ str = urllib2.urlopen('http://a.4cdn.org/' + board + '/thread/' + thrd + '.json'
 o = json.loads(str)
 for post in o['posts']:
     download_post(board, post, dir)
+
+# end of the program
+

@@ -1,48 +1,67 @@
-#!/usr/bin/python
-import urllib2
+#!/usr/bin/python3
+import urllib3
+import asyncio
+import aiohttp
+import shutil
 import json
 import sys
 import os
-import getopt
+import argparse
 import re
+from tqdm import tqdm
 
-def download_post(board, post, dir):
-    if post.has_key('tim') and post.has_key('ext'):
-        print post['tim']
-        data = urllib2.urlopen('http://i.4cdn.org/%s/%s%s' % (board, post['tim'], post['ext'])).read()
-        with open('%s/%s%s' % (dir, post['tim'], post['ext']), 'wb') as f:
+async def download_post(board, post, output_dir, http, pbar):
+    url = 'http://i.4cdn.org/%s/%s%s' % (board, post['tim'], post['ext'])
+    async with http.get(url) as r:     
+        with open('%s/%s%s' % (output_dir, post['tim'], post['ext']), 'wb') as f:
+            data = await r.content.read()
             f.write(data)
+            pbar.update(1)
+        await r.release()
 
-def print_usage():
-    print "Usage: 4chan_dl.py -u <thread url> -o <output directory>"
-    exit(0)
 
-def parse_args(args):
-    params = {}
-    optlist, args = getopt.getopt(args, '?u:o:')
-    for o, a in optlist:
-        if o == '-u':
-            params['url'] = a
-        if o == '-o':
-            params['dir'] = a
-        if o == '?':
-            print_usage()
-    return params
+def create_output_dir(output_dir):
+    if not os.path.isdir(output_dir):
+        os.makedirs(output_dir)
 
-params = parse_args(sys.argv[1:])
-if not params.has_key('url') or not params.has_key('dir'):
-    print_usage()
 
-if not os.path.isdir(params['dir']):
-    os.makedirs(params['dir'])
+def get_posts(url, board, thrd):
+    http = urllib3.PoolManager(num_pools=1)
 
-dir = params['dir'].strip('/')
-board = re.findall('\.org?/.*?/', params['url'])[0][5:-1]
-thrd = re.findall('/thread/[0-9]*/', params['url'])[0][8:-1]
-str = urllib2.urlopen('http://a.4cdn.org/' + board + '/thread/' + thrd + '.json').read()
-o = json.loads(str)
-for post in o['posts']:
-    download_post(board, post, dir)
+    r = http.request(
+        'GET',
+        'http://a.4cdn.org/' + board + '/thread/' + thrd + '.json'
+    )    
+    posts_list = json.loads(r.data)['posts']
+    return [p for p in posts_list if 'tim' in p and 'ext' in p]
 
-# end of the program
+
+async def download_posts(url, output_dir, loop):
+    board = re.findall(r'\.org?/.*?/', url)[0][5:-1]
+    thrd = re.findall(r'/thread/[0-9]*/', url)[0][8:-1]
+    posts = get_posts(url, board, thrd)   
+    pbar = tqdm(total=len(posts))
+    async with aiohttp.ClientSession(loop=loop) as http:
+        tasks = [download_post(board, post, output_dir, http, pbar) for post in posts]
+        await asyncio.gather(*tasks)        
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        prog='4chan_dl',
+        description='downloads all images from a 4chan thread'
+    )
+    parser.add_argument('--url', required=True, help='Thread URL')
+    parser.add_argument('--dir', default='.', help='Output Directory')
+    flags = parser.parse_args()
+    output_dir = flags.dir.strip('/')
+    url = flags.url
+    
+    create_output_dir(output_dir)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(download_posts(url, output_dir, loop))
+
+
+if __name__ == '__main__':
+    main()
 

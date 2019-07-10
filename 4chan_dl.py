@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 import urllib3
 import asyncio
 import aiohttp

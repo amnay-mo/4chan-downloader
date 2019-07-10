@@ -46,17 +46,22 @@ async def download_posts(url, output_dir, loop):
         await asyncio.gather(*tasks)        
 
 
+def thread_name(url):
+    s = url.split('/')
+    if len(s) > 1:
+        return s[-1]
+    else:
+        raise ValueError('invalid url')
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='4chan_dl',
         description='downloads all images from a 4chan thread'
     )
-    parser.add_argument('--url', required=True, help='Thread URL')
-    parser.add_argument('--dir', default='.', help='Output Directory')
-    flags = parser.parse_args()
-    output_dir = flags.dir.strip('/')
-    url = flags.url
-    
+    parser.add_argument('url', nargs=1, help='Thread URL')
+    url = parser.parse_args().url[0]
+    output_dir = thread_name(url)
     create_output_dir(output_dir)
     loop = asyncio.get_event_loop()
     loop.run_until_complete(download_posts(url, output_dir, loop))

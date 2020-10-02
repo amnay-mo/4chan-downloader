@@ -60,7 +60,7 @@ def main():
         description='downloads all images from a 4chan thread'
     )
     parser.add_argument('url', nargs=1, help='Thread URL')
-    url = parser.parse_args().url[0]
+    url = parser.parse_args().url[0].rstrip('/')
     output_dir = thread_name(url)
     create_output_dir(output_dir)
     loop = asyncio.get_event_loop()
